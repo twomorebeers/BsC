@@ -1,6 +1,7 @@
 # Thesis Project: Infrastructure as Code & Network Resilience (Demo Version)
 
-**Student:** [Your Name]  
+**Student:** Bogdan Rutas
+**Adviser:** Ioan Dragan 
 **Project Title:** Evaluating the Efficacy of Infrastructure as Code in SOHO Environments  
 
 ---
