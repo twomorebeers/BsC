@@ -1,0 +1,83 @@
+version: "3.8"
+
+networks:
+  thesis_demo_net:
+    driver: bridge
+
+services:
+  # 1. Unbound (Privacy Layer)
+  unbound:
+    image: mvance/unbound:latest
+    container_name: demo-unbound
+    restart: unless-stopped
+    networks:
+      - thesis_demo_net
+    # No ports exposed; only Pi-hole needs to talk to this.
+
+  # 2. Pi-hole (The Filter)
+  pihole:
+    image: pihole/pihole:latest
+    container_name: demo-pihole
+    restart: unless-stopped
+    environment:
+      # Point to the Unbound container name internally
+      - PIHOLE_DNS_=unbound
+      - WEBPASSWORD=admin
+    networks:
+      - thesis_demo_net
+    ports:
+      # CHANGED: Map to safe ports to avoid crashing the Professor's WiFi
+      - "5353:53/tcp"
+      - "5353:53/udp"
+      - "8080:80/tcp" # Web Admin Interface
+    depends_on:
+      - unbound
+
+  # 3. Nginx Proxy Manager
+  nginx:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: demo-nginx
+    restart: unless-stopped
+    ports:
+      # CHANGED: Moved 80/443 to 8000/8443 to be safe
+      - "8000:80"
+      - "8181:81" # Admin UI
+      - "8443:443"
+    networks:
+      - thesis_demo_net
+    volumes:
+      - ./demo_data/nginx:/data
+
+  # 4. n8n (Automation)
+  n8n:
+    image: n8n-io/n8n
+    container_name: demo-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    networks:
+      - thesis_demo_net
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=thesis_demo
+    volumes:
+      - ./demo_data/n8n:/home/node/.n8n
+
+  # 5. WireGuard (The "Mock" Tunnel)
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: demo-wireguard
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - WIREGUARD_GO=true # REQUIRED for Docker Desktop support
+    cap_add:
+      - NET_ADMIN
+      # SYS_MODULE removed (not supported on Desktop)
+    ports:
+      - "51820:51820/udp"
+    networks:
+      - thesis_demo_net
+    volumes:
+      - ./demo_data/wireguard:/config
